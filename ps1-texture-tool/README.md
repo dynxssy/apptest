@@ -9,20 +9,26 @@ Two tools:
 
 ## AI re-texturing (photoreal)
 
+Finds the face via the pixel-art eyes, generates a photoreal face and warps it so its
+eyes land on yours, and adds real hair/skin/cloth photo detail to every other region
+while keeping your exact colours. Works on NVIDIA GPUs and Apple Silicon (MPS).
+
 ```sh
-pip install -r requirements-ai.txt          # install torch with CUDA first if on NVIDIA
-python ai_retexture.py textures/ out/ --ps1 # writes *_real.png and *_ps1.png
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements-ai.txt
+python ai_retexture.py textures/ out/ --ps1 --prompt "old man, grey messy hair, grey stubble beard"
 ```
 
-* `--strength` (0.7): how much the AI may invent. Use 0.55 to stay close to the source and 0.8 for more realism.
-* `--control` (0.8): how strictly it keeps the layout and colours of the source.
-* `--prompt "old man, grey hair, stubble"` applies to every image, or use a `prompts.txt` next to
-  the inputs with lines like `face_01.png: old man, grey hair, stubble`.
-* `--variants 4` makes 4 seeds per texture so you can pick the best.
-* `--model` takes any SD1.5 checkpoint (HF id or local `.safetensors`). The default is Realistic Vision 5.1.
-* `--prep-only` skips the AI and only writes the cleaned, upscaled input it would feed the model.
+Outputs per texture: `*_real.png` (1024px photoreal), `*_ps1.png` (PS1 look at the input size)
+and `*_face.png` (the generated face, for checking).
 
-Tip: put face textures and clothing atlases in separate folders and give each its own prompt.
+* `--prompt` sets who the face is. Use `prompts.txt` next to the inputs for per-file prompts
+  (`face_01.png: young woman, freckles`).
+* `--hair "black curly hair"` / `--skin "dark skin"` set the material swatches. They are cached
+  in `~/.cache/ps1ify`, so a batch generates them only once.
+* `--variants 4` makes 4 different faces per texture.
+* `--detail`, `--face-match` set the photo detail strength and how much the face is tinted to your skin colour.
+* Textures with no eyes (clothing atlases) get cloth detail only.
 
 ## Procedural / PS1 finish
 

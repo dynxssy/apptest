@@ -3,5 +3,6 @@ diffusers>=0.27
 transformers
 accelerate
 safetensors
+opencv-python-headless
 numpy
 pillow
