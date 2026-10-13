@@ -16,6 +16,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -96,6 +97,44 @@ impl AuthService {
 
     pub fn is_authenticated(&self) -> bool {
         self.user.as_ref().map(|u| !u.token.is_empty()).unwrap_or(false)
+    }
+
+    pub fn has_refresh_token(&self) -> bool {
+        self.user.as_ref().map(|u| !u.refresh_token.is_empty()).unwrap_or(false)
+    }
+
+    /// Seconds until the current access token's `exp`, if it can be decoded.
+    /// `None` means we could not read an expiry (e.g. opaque token) — in that
+    /// case we leave it to the normal 401 → refresh path rather than guessing.
+    pub fn token_ttl_secs(&self) -> Option<i64> {
+        let token = &self.user.as_ref()?.token;
+        let exp = jwt_exp(token)?;
+        Some(exp - Utc::now().timestamp())
+    }
+
+    /// True when the access token is expired, or within `leeway_secs` of it.
+    pub fn token_expired(&self, leeway_secs: i64) -> bool {
+        match self.token_ttl_secs() {
+            Some(ttl) => ttl <= leeway_secs,
+            None => false,
+        }
+    }
+
+    /// Ensure a usable session at startup without forcing a fresh SSO login
+    /// whenever possible: if the access token is expired but a refresh token
+    /// is present, refresh silently; only return false when we genuinely need
+    /// the user to log in again.
+    pub async fn ensure_session(&mut self) -> bool {
+        if !self.is_authenticated() {
+            return false;
+        }
+        if self.token_expired(60) && self.has_refresh_token() {
+            match self.refresh_token().await {
+                Ok(Some(_)) => return true,
+                _ => return false, // refresh token itself expired/invalid
+            }
+        }
+        true
     }
 
     pub fn auth_headers(&self) -> reqwest::header::HeaderMap {
@@ -200,5 +239,62 @@ impl AuthService {
                 let _ = std::fs::write(&self.session_file, s);
             }
         }
+    }
+}
+
+/// Read the `exp` claim (seconds since epoch) from a JWT without verifying its
+/// signature — we only use it to decide whether to refresh proactively.
+fn jwt_exp(token: &str) -> Option<i64> {
+    let payload_b64 = token.split('.').nth(1)?;
+    let bytes = base64url_decode(payload_b64)?;
+    let v: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    v.get("exp").and_then(|e| e.as_i64())
+}
+
+/// Minimal base64url decoder (no padding), enough for a JWT payload segment.
+fn base64url_decode(s: &str) -> Option<Vec<u8>> {
+    fn val(c: u8) -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some((c - b'A') as u32),
+            b'a'..=b'z' => Some((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((c - b'0' + 52) as u32),
+            b'-' => Some(62),
+            b'_' => Some(63),
+            _ => None,
+        }
+    }
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    let mut buf = 0u32;
+    let mut bits = 0u32;
+    for &c in s.as_bytes() {
+        if c == b'=' {
+            break;
+        }
+        let v = val(c)?;
+        buf = (buf << 6) | v;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buf >> bits) as u8);
+        }
+    }
+    Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decodes_jwt_exp() {
+        // header.payload.signature — payload = {"exp":1700000000,"sub":"x"}
+        let payload = "eyJleHAiOjE3MDAwMDAwMDAsInN1YiI6IngifQ";
+        let token = format!("aaa.{payload}.bbb");
+        assert_eq!(jwt_exp(&token), Some(1700000000));
+    }
+
+    #[test]
+    fn opaque_token_has_no_exp() {
+        assert_eq!(jwt_exp("not-a-jwt"), None);
     }
 }

@@ -63,9 +63,24 @@ and logout.
 On first run it opens the real SSO URL in your browser. Complete the Microsoft
 login + MFA yourself, then copy the auth JSON the page produces (Network tab →
 the `logging_in`/`token` response, or the console `message` event) and paste it
-once. The session is saved to `~/.griffith_attendance_session.json` and the JWT
-is refreshed automatically. Your Microsoft credentials are never seen by this
-program — you authenticate directly with Microsoft in your own browser.
+once. Your Microsoft credentials are never seen by this program — you
+authenticate directly with Microsoft in your own browser.
+
+### Staying logged in
+
+The session is saved to `~/.griffith_attendance_session.json`. On every launch
+the client resumes that session instead of making you log in again:
+
+* if the saved access token is still valid, it just continues;
+* if the access token has expired but the **refresh token** is still good, it
+  refreshes silently in the background (one API call, no browser);
+* only when the refresh token itself has expired does it send you back to the
+  Microsoft login.
+
+So you re-do the full SSO login only when your refresh token has genuinely
+lapsed — not every time you open the app. (This uses the refresh token exactly
+as the API intends; it does not weaken or skip MFA, which happens at the real
+login.)
 
 ## Configuration (environment variables)
 

@@ -37,10 +37,25 @@ async fn main() -> Result<()> {
 
     banner(&cfg);
 
-    if auth.is_authenticated() {
-        println!("Logged in as {}", auth.user.as_ref().unwrap().full_name());
+    // Try to resume the saved session first. If the access token has expired
+    // but the refresh token is still valid, this refreshes silently so you are
+    // not sent back to the Microsoft login every time you open the app.
+    if auth.ensure_session().await {
+        if let Some(ttl) = auth.token_ttl_secs() {
+            println!(
+                "Logged in as {} (session valid ~{} min).",
+                auth.user.as_ref().unwrap().full_name(),
+                (ttl / 60).max(0)
+            );
+        } else {
+            println!("Logged in as {}", auth.user.as_ref().unwrap().full_name());
+        }
     } else {
-        println!("No active session. Please log in.");
+        if auth.is_authenticated() {
+            println!("Your saved session has fully expired. Please log in again.");
+        } else {
+            println!("No active session. Please log in.");
+        }
         if let Err(e) = auth.sso_login() {
             eprintln!("Login failed: {e}");
             return Ok(());
