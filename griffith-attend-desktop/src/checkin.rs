@@ -19,6 +19,7 @@ use crate::auth::AuthService;
 use crate::beacon::BeaconScanner;
 use crate::config::{Config, CHECKIN_RETRY_BASE_DELAY_SECS, MAX_CHECKIN_RETRIES, RANGING_SECONDS};
 
+#[derive(Clone)]
 pub struct CheckInResult {
     pub module_name: String,
     pub success: bool,

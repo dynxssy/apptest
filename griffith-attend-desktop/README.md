@@ -5,6 +5,11 @@ macOS laptops**. It reproduces the app's legitimate behaviour — SSO login,
 timetable, attendance report, token refresh, and **beacon-gated check-in** — so
 you can check in from a laptop *when you are physically in the room*.
 
+It ships as two binaries that share all the same logic:
+
+* **`griffith-attend-gui`** — a graphical app window (egui/eframe). Start here.
+* **`griffith-attend`** — the same features as a terminal menu.
+
 > Unofficial. Use it only with your own account and only where your institution
 > permits a desktop/laptop client. It talks to the same API as the official app
 > using your own SSO session; it does not bypass any server-side rule.
@@ -31,8 +36,9 @@ Requires a recent stable Rust toolchain.
 
 ### Linux
 ```bash
-# Debian/Ubuntu build + runtime deps for the BlueZ (D-Bus) backend
-sudo apt install libdbus-1-dev pkg-config
+# Debian/Ubuntu build deps: BlueZ (D-Bus) backend + GUI windowing
+sudo apt install libdbus-1-dev pkg-config \
+     libxkbcommon-dev libgl1-mesa-dev
 cargo build --release
 ```
 Bluetooth is accessed through BlueZ over D-Bus; make sure the `bluetooth`
@@ -43,20 +49,41 @@ service is running and your user may use the adapter.
 cargo build --release
 ```
 Uses Core Bluetooth. On first run macOS will prompt for Bluetooth permission —
-allow it (Terminal/your app needs Bluetooth access in
-System Settings → Privacy & Security → Bluetooth).
+allow it (System Settings → Privacy & Security → Bluetooth).
 
-The binary is `target/release/griffith-attend`.
+The built binaries are `target/release/griffith-attend-gui` and
+`target/release/griffith-attend`.
 
 ## Run
 
+Graphical app:
+```bash
+./target/release/griffith-attend-gui
+```
+A window with a sidebar: Timetable, Attendance report, Check-in, plus
+Start/Stop auto check-in, Refresh token and Log out. The bottom bar shows live
+status (fetching, scanning, idle); the top bar shows who you are and how long
+the session is valid.
+
+Terminal version (same features, numbered menu):
 ```bash
 ./target/release/griffith-attend
 ```
 
-A text menu offers: today's timetable, full timetable, attendance report,
-a single live-scan check-in, a continuous auto check-in loop, token refresh,
-and logout.
+## macOS: build a .app / .dmg
+
+On a Mac, from the project root:
+```bash
+./scripts/package-macos.sh
+```
+This builds a universal (Intel + Apple Silicon) release of the GUI, wraps it in
+`dist/Griffith Attendance.app` (with the Bluetooth usage description macOS
+requires), and produces `dist/GriffithAttendance.dmg`. It ad-hoc-signs the app
+so it runs on your own machine; sharing it with other people additionally needs
+an Apple Developer ID certificate and notarization.
+
+> The `.dmg` has to be built on macOS (it uses `hdiutil`), so it is not produced
+> in this Linux repo — run the script on your Mac to get it.
 
 ### Login
 
@@ -100,7 +127,10 @@ Raise `GRIFFITH_MIN_RSSI` (e.g. `-70`) to require being closer to the beacon.
 | `attendance.rs` | Timetable / attendance / report REST client                 |
 | `beacon.rs`     | Cross-platform iBeacon scanner (live detections only)       |
 | `checkin.rs`    | Presence-gated check-in orchestration                       |
-| `main.rs`       | Interactive CLI                                             |
+| `lib.rs`        | Re-exports the modules shared by both binaries              |
+| `main.rs`       | Interactive terminal front-end (`griffith-attend`)          |
+| `bin/gui.rs`    | Graphical front-end (`griffith-attend-gui`, egui/eframe)    |
+| `scripts/package-macos.sh` | Builds the macOS `.app` + `.dmg`                 |
 
 ## License
 

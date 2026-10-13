@@ -158,7 +158,28 @@ impl AuthService {
             .ok_or_else(|| anyhow!("Not authenticated"))
     }
 
-    /// Manual SSO: open the browser, user logs in with Microsoft, pastes payload.
+    /// Open the real SSO URL in the user's own system browser.
+    pub fn open_sso(&self) {
+        let _ = webbrowser::open(&self.cfg.sso_url());
+    }
+
+    /// Parse, validate and persist a pasted SSO auth payload. Shared by the CLI
+    /// and GUI front-ends so there is one login code path.
+    pub fn login_from_json(&mut self, raw: &str) -> Result<&User> {
+        let v: serde_json::Value =
+            serde_json::from_str(raw.trim()).context("That was not valid JSON")?;
+        let user = User::from_json(&v);
+        if user.token.is_empty() || user.user_id.is_empty() {
+            return Err(anyhow!(
+                "Payload is missing `token` and/or `user_id` — check you copied the right response."
+            ));
+        }
+        self.user = Some(user);
+        self.save();
+        Ok(self.user.as_ref().unwrap())
+    }
+
+    /// Manual SSO (terminal): open the browser, user logs in, pastes payload.
     pub fn sso_login(&mut self) -> Result<&User> {
         let url = self.cfg.sso_url();
         println!("\n{}", "=".repeat(60));
@@ -181,17 +202,7 @@ impl AuthService {
         io::stdout().flush().ok();
         let mut raw = String::new();
         io::stdin().read_line(&mut raw)?;
-        let v: serde_json::Value =
-            serde_json::from_str(raw.trim()).context("That was not valid JSON")?;
-
-        let user = User::from_json(&v);
-        if user.token.is_empty() || user.user_id.is_empty() {
-            return Err(anyhow!(
-                "Payload is missing `token` and/or `user_id` — check you copied the right response."
-            ));
-        }
-        self.user = Some(user);
-        self.save();
+        self.login_from_json(&raw)?;
         println!("\n[Auth] Logged in as {}", self.user.as_ref().unwrap().full_name());
         Ok(self.user.as_ref().unwrap())
     }

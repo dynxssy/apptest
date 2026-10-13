@@ -5,25 +5,15 @@
 //! Check-in requires a live Bluetooth detection of the room's iBeacon (plus a
 //! proximity gate) — there is no simulated or manual-override path.
 
-// Some endpoint helpers and beacon fields mirror the original API surface for
-// completeness even though the CLI does not call every one yet.
-#![allow(dead_code)]
-
-mod attendance;
-mod auth;
-mod beacon;
-mod checkin;
-mod config;
-
 use std::io::{self, Write};
 
 use anyhow::Result;
 use chrono::{Local, Utc};
 
-use attendance::{AttendanceService, Lesson, ModuleReport};
-use auth::AuthService;
-use checkin::CheckInService;
-use config::Config;
+use griffith_attend_desktop::attendance::{AttendanceService, Lesson, ModuleReport};
+use griffith_attend_desktop::auth::AuthService;
+use griffith_attend_desktop::checkin::CheckInService;
+use griffith_attend_desktop::config::{self, Config};
 
 #[tokio::main]
 async fn main() -> Result<()> {

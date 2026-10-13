@@ -15,7 +15,16 @@ chrono = { version = "0.4", features = ["clock"] }
 dirs = "5"
 webbrowser = "1"
 anyhow = "1"
+eframe = "0.29"
+
+[lib]
+name = "griffith_attend_desktop"
+path = "src/lib.rs"
 
 [[bin]]
 name = "griffith-attend"
 path = "src/main.rs"
+
+[[bin]]
+name = "griffith-attend-gui"
+path = "src/bin/gui.rs"
