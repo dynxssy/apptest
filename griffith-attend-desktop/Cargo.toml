@@ -1,0 +1,21 @@
+[package]
+name = "griffith-attend-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "Unofficial desktop (Linux/macOS) client for the Griffith College attendance API. Presence-gated: only checks in when the room's iBeacon is physically detected over Bluetooth."
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1.40", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+btleplug = "0.11"
+chrono = { version = "0.4", features = ["clock"] }
+dirs = "5"
+webbrowser = "1"
+anyhow = "1"
+
+[[bin]]
+name = "griffith-attend"
+path = "src/main.rs"
