@@ -180,7 +180,15 @@ def detect_photo_eyes(img):
 
 def make_face(gen, prompt, seed, tries):
     for t in range(tries):
-        img = gen(FACE_PROMPT.format(p=prompt), 512, 640, seed + 101 * t)
+        a = gen.args
+        key = hashlib.md5(f"{prompt}|{a.model}|{a.steps}|{a.cfg}|{seed + 101 * t}".encode()).hexdigest()[:12]
+        f = CACHE / f"face_{key}.png"
+        if f.exists():
+            img = Image.open(f).convert("RGB")
+        else:
+            img = gen(FACE_PROMPT.format(p=prompt), 512, 640, seed + 101 * t)
+            CACHE.mkdir(parents=True, exist_ok=True)
+            img.save(f)
         eyes = detect_photo_eyes(img)
         if eyes:
             return img, eyes

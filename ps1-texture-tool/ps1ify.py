@@ -200,15 +200,9 @@ def ps1_output(rgb, res, colors, dither, out_size):
     return img
 
 
-def process(path, args):
-    src = np.asarray(Image.open(path).convert("RGB")).astype(np.float32)
+def enhance(src, name, args):
+    """Pixel art (0..255 float array) -> detailed float RGB at the working resolution."""
     H, W = src.shape[:2]
-    out_size = None if args.keep_res else (W, H)
-    if args.finish_only:
-        # already-detailed (e.g. photo/AI) texture: only apply the PS1 output stage
-        rgb = grade(src / 255.0, sat=args.saturation, gamma=1.0, contrast=1.0)
-        return ps1_output(rgb, args.res, args.colors, not args.no_dither, out_size), 1
-
     k = detect_block(src) if args.block == 0 else args.block
     native = src.reshape(H // k, k, W // k, k, 3).mean(axis=(1, 3)) if k > 1 else src
 
@@ -219,13 +213,26 @@ def process(path, args):
     crisp = resize_rgb(native / 255.0, work, wh, Image.NEAREST)
     rgb = rgb * 0.75 + crisp * 0.25
 
-    seed = int(hashlib.md5(Path(path).name.encode()).hexdigest()[:8], 16) ^ args.seed
+    seed = int(hashlib.md5(name.encode()).hexdigest()[:8], 16) ^ args.seed
     rng = np.random.default_rng(seed)
     masks = material_masks(rgb, (args.skin_hue_min, args.skin_hue_max))
     rgb = add_detail(rgb, masks, rng, args.strength)
     rgb = bake_volume(rgb, args.strength, work / 256.0)
     rgb = grade(rgb, sat=args.saturation)
 
+    return rgb, k, masks
+
+
+def process(path, args):
+    src = np.asarray(Image.open(path).convert("RGB")).astype(np.float32)
+    H, W = src.shape[:2]
+    out_size = None if args.keep_res else (W, H)
+    if args.finish_only:
+        # already-detailed (e.g. photo/AI) texture: only apply the PS1 output stage
+        rgb = grade(src / 255.0, sat=args.saturation, gamma=1.0, contrast=1.0)
+        return ps1_output(rgb, args.res, args.colors, not args.no_dither, out_size), 1
+
+    rgb, k, masks = enhance(src, Path(path).name, args)
     img = ps1_output(rgb, args.res, args.colors, not args.no_dither, out_size)
 
     if args.debug_masks:
@@ -235,7 +242,7 @@ def process(path, args):
     return img, k
 
 
-def main():
+def build_parser():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("input", help="image file or folder")
     p.add_argument("output", help="output folder")
@@ -256,7 +263,11 @@ def main():
                    help="skip detail/shading; only downsample + 15-bit dither + CLUT "
                         "(use on photoreal or AI-retextured images)")
     p.add_argument("--debug-masks", action="store_true", help="also write skin/hair/cloth masks (R/G/B)")
-    args = p.parse_args()
+    return p
+
+
+def main():
+    args = build_parser().parse_args()
 
     inp = Path(args.input)
     files = sorted(f for f in inp.rglob("*") if f.suffix.lower() in IMAGE_EXTS) if inp.is_dir() else [inp]
