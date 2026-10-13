@@ -20,6 +20,69 @@ use griffith_attend_desktop::auth::AuthService;
 use griffith_attend_desktop::checkin::CheckInService;
 use griffith_attend_desktop::config::{self, Config, RANGING_SECONDS};
 
+/// The browser-console one-liner that prints the login JSON.
+const TOKEN_CMD: &str =
+    "fetch('/api/v2/token', { credentials: 'include' }).then(r => r.json()).then(d => console.log(JSON.stringify(d)))";
+
+// ---------------------------------------------------------------------------
+// Small UI helpers
+// ---------------------------------------------------------------------------
+
+/// A titled, outlined section used to lay the login steps out as cards.
+fn step_frame(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::group(ui.style())
+        .inner_margin(egui::Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.strong(title);
+            ui.add_space(4.0);
+            body(ui);
+        });
+    ui.add_space(8.0);
+}
+
+/// A read-only, selectable monospace box for showing a command.
+fn code_box(ui: &mut egui::Ui, mut text: &str) {
+    egui::Frame::none()
+        .fill(ui.visuals().extreme_bg_color)
+        .inner_margin(egui::Margin::same(8.0))
+        .rounding(4.0)
+        .show(ui, |ui| {
+            ui.add(
+                egui::TextEdit::multiline(&mut text)
+                    .font(egui::TextStyle::Monospace)
+                    .desired_width(f32::INFINITY)
+                    .desired_rows(2),
+            );
+        });
+}
+
+/// A button that copies `text` to the clipboard when clicked.
+fn copy_button(ui: &mut egui::Ui, label: &str, text: &str) -> egui::Response {
+    let resp = ui.button(label);
+    if resp.clicked() {
+        ui.ctx().copy_text(text.to_owned());
+    }
+    resp
+}
+
+/// Slightly larger, roomier styling than the egui defaults.
+fn setup_style(ctx: &egui::Context) {
+    use egui::{FontFamily, FontId, TextStyle};
+    let mut style = (*ctx.style()).clone();
+    style.spacing.item_spacing = egui::vec2(8.0, 8.0);
+    style.spacing.button_padding = egui::vec2(10.0, 6.0);
+    style.text_styles = [
+        (TextStyle::Heading, FontId::new(21.0, FontFamily::Proportional)),
+        (TextStyle::Body, FontId::new(15.0, FontFamily::Proportional)),
+        (TextStyle::Button, FontId::new(15.0, FontFamily::Proportional)),
+        (TextStyle::Monospace, FontId::new(13.0, FontFamily::Monospace)),
+        (TextStyle::Small, FontId::new(12.0, FontFamily::Proportional)),
+    ]
+    .into();
+    ctx.set_style(style);
+}
+
 // ---------------------------------------------------------------------------
 // Messages between the UI thread and the worker thread
 // ---------------------------------------------------------------------------
@@ -251,33 +314,83 @@ impl App {
 
     fn login_ui(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_space(8.0);
-            ui.heading("Sign in");
-            ui.label(
-                "Log in with Microsoft in your own browser, then paste the auth JSON \
-                 the login page produces (Network tab → the logging_in/token response).",
-            );
-            ui.add_space(8.0);
-            if ui.button("Open Microsoft login in browser").clicked() {
-                let _ = self.cmd.send(Cmd::OpenSso);
-            }
-            ui.add_space(8.0);
-            ui.label("Paste auth JSON:");
-            ui.add(
-                egui::TextEdit::multiline(&mut self.paste)
-                    .desired_rows(6)
-                    .desired_width(f32::INFINITY)
-                    .hint_text("{ \"auth_status\": true, \"token\": \"…\", \"user_id\": \"…\", … }"),
-            );
-            ui.add_space(6.0);
-            if ui.button("Log in").clicked() {
-                self.error.clear();
-                let _ = self.cmd.send(Cmd::Login(self.paste.clone()));
-            }
-            if !self.error.is_empty() {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.add_space(6.0);
+                ui.heading("Sign in to Griffith Attendance");
+                ui.label(
+                    "A quick one-time setup. You log in with Microsoft in your own browser, \
+                     then copy one line back here. After this, the app keeps you signed in.",
+                );
+                ui.add_space(10.0);
+
+                // Step 1 — open the login page
+                step_frame(ui, "Step 1  ·  Open the Griffith login", |ui| {
+                    ui.label("This opens the real Microsoft sign-in. Complete your login + MFA there.");
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("🌐  Open login in browser").clicked() {
+                            let _ = self.cmd.send(Cmd::OpenSso);
+                        }
+                        copy_button(ui, "Copy login link", &self.cfg.sso_url());
+                    });
+                });
+
+                // Step 2 — run the console command
+                step_frame(ui, "Step 2  ·  Get your login details", |ui| {
+                    ui.label(
+                        "When the page says “Logging in, please wait…”, open your browser's \
+                         developer console and paste this command, then press Enter:",
+                    );
+                    ui.add_space(4.0);
+                    code_box(ui, TOKEN_CMD);
+                    ui.add_space(4.0);
+                    if copy_button(ui, "📋  Copy command", TOKEN_CMD).clicked() {
+                        self.status = "Command copied — paste it into the browser console.".into();
+                    }
+                    ui.add_space(6.0);
+                    ui.collapsing("How do I open the console?", |ui| {
+                        ui.label("• Safari: Settings → Advanced → tick “Show features for web developers”, \
+                                  then press ⌥⌘C. The first time, type  allow pasting  and press Enter before pasting.");
+                        ui.label("• Chrome / Edge: press ⌥⌘I (Mac) or F12 (Windows/Linux) and pick the Console tab.");
+                        ui.add_space(4.0);
+                        ui.label("It prints a line of JSON. If it prints {} or nothing, wait a few seconds for \
+                                  the page to finish and run it again.");
+                    });
+                });
+
+                // Step 3 — paste the result
+                step_frame(ui, "Step 3  ·  Paste the result here", |ui| {
+                    ui.label("Copy the JSON line the console printed and paste it below:");
+                    ui.add_space(4.0);
+                    ui.add(
+                        egui::TextEdit::multiline(&mut self.paste)
+                            .desired_rows(5)
+                            .desired_width(f32::INFINITY)
+                            .hint_text("{ \"auth_status\": true, \"token\": \"…\", \"user_id\": \"…\", … }"),
+                    );
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        if ui.add(egui::Button::new("✅  Sign in")).clicked() {
+                            self.error.clear();
+                            let _ = self.cmd.send(Cmd::Login(self.paste.clone()));
+                        }
+                        if ui.button("Clear").clicked() {
+                            self.paste.clear();
+                            self.error.clear();
+                        }
+                    });
+                    if !self.error.is_empty() {
+                        ui.add_space(6.0);
+                        ui.colored_label(egui::Color32::LIGHT_RED, format!("⚠  {}", self.error));
+                    }
+                });
+
                 ui.add_space(8.0);
-                ui.colored_label(egui::Color32::LIGHT_RED, &self.error);
-            }
+                ui.weak(
+                    "That line is a login credential for your account — don't share it with anyone. \
+                     The app stores it only on this computer.",
+                );
+            });
         });
     }
 
@@ -461,6 +574,9 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Griffith Attendance",
         options,
-        Box::new(move |_cc| Ok(Box::new(App::new(cmd, evt, cfg)) as Box<dyn eframe::App>)),
+        Box::new(move |cc| {
+            setup_style(&cc.egui_ctx);
+            Ok(Box::new(App::new(cmd, evt, cfg)) as Box<dyn eframe::App>)
+        }),
     )
 }

@@ -10,6 +10,18 @@ It ships as two binaries that share all the same logic:
 * **`griffith-attend-gui`** — a graphical app window (egui/eframe). Start here.
 * **`griffith-attend`** — the same features as a terminal menu.
 
+## Quick install (one command)
+
+On macOS or Linux, paste this into a terminal. It installs Rust and the build
+tools if missing, fetches the source, builds it, and puts the app on your
+Desktop:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dynxssy/apptest/claude/awesome-hawking-2lsuwj/griffith-attend-desktop/install.sh | bash
+```
+
+Prefer to build it yourself? See **Build** below.
+
 > Unofficial. Use it only with your own account and only where your institution
 > permits a desktop/laptop client. It talks to the same API as the official app
 > using your own SSO session; it does not bypass any server-side rule.
