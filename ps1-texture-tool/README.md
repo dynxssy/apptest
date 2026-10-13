@@ -1,5 +1,31 @@
 # ps1ify — pixel-art → PS1-style human textures
 
+Two tools:
+
+* **`ai_retexture.py`**: photoreal results (real eyes, pores, stubble, hair strands)
+  that keep your UV layout. It uses Stable Diffusion img2img + ControlNet tile and needs a GPU.
+* **`ps1ify.py`**: procedural detail plus the PS1 finish. CPU only, instant.
+  `--finish-only` applies just the PS1 look (downsample, 15-bit dither, CLUT) to photoreal textures.
+
+## AI re-texturing (photoreal)
+
+```sh
+pip install -r requirements-ai.txt          # install torch with CUDA first if on NVIDIA
+python ai_retexture.py textures/ out/ --ps1 # writes *_real.png and *_ps1.png
+```
+
+* `--strength` (0.7): how much the AI may invent. Use 0.55 to stay close to the source and 0.8 for more realism.
+* `--control` (0.8): how strictly it keeps the layout and colours of the source.
+* `--prompt "old man, grey hair, stubble"` applies to every image, or use a `prompts.txt` next to
+  the inputs with lines like `face_01.png: old man, grey hair, stubble`.
+* `--variants 4` makes 4 seeds per texture so you can pick the best.
+* `--model` takes any SD1.5 checkpoint (HF id or local `.safetensors`). The default is Realistic Vision 5.1.
+* `--prep-only` skips the AI and only writes the cleaned, upscaled input it would feed the model.
+
+Tip: put face textures and clothing atlases in separate folders and give each its own prompt.
+
+## Procedural / PS1 finish
+
 Batch-converts flat pixel-art character textures (faces, skin, clothing atlases)
 into grittier, more "realistic" PlayStation 1–era textures. Pure numpy + Pillow,
 deterministic, no GPU or AI model needed.

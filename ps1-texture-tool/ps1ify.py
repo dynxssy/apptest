@@ -203,6 +203,12 @@ def ps1_output(rgb, res, colors, dither, out_size):
 def process(path, args):
     src = np.asarray(Image.open(path).convert("RGB")).astype(np.float32)
     H, W = src.shape[:2]
+    out_size = None if args.keep_res else (W, H)
+    if args.finish_only:
+        # already-detailed (e.g. photo/AI) texture: only apply the PS1 output stage
+        rgb = grade(src / 255.0, sat=args.saturation, gamma=1.0, contrast=1.0)
+        return ps1_output(rgb, args.res, args.colors, not args.no_dither, out_size), 1
+
     k = detect_block(src) if args.block == 0 else args.block
     native = src.reshape(H // k, k, W // k, k, 3).mean(axis=(1, 3)) if k > 1 else src
 
@@ -220,7 +226,6 @@ def process(path, args):
     rgb = bake_volume(rgb, args.strength, work / 256.0)
     rgb = grade(rgb, sat=args.saturation)
 
-    out_size = None if args.keep_res else (W, H)
     img = ps1_output(rgb, args.res, args.colors, not args.no_dither, out_size)
 
     if args.debug_masks:
@@ -247,6 +252,9 @@ def main():
     p.add_argument("--skin-hue-min", type=float, default=0.0)
     p.add_argument("--skin-hue-max", type=float, default=0.12)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--finish-only", action="store_true",
+                   help="skip detail/shading; only downsample + 15-bit dither + CLUT "
+                        "(use on photoreal or AI-retextured images)")
     p.add_argument("--debug-masks", action="store_true", help="also write skin/hair/cloth masks (R/G/B)")
     args = p.parse_args()
 
