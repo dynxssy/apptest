@@ -92,6 +92,9 @@ function send(msg) {
 function onJSON(m) {
   switch (m.t) {
     case 'hello':
+      // The Mac app was updated while this page stayed open: load the new web app.
+      if (state.build && m.build && m.build !== state.build) { location.reload(); return; }
+      state.build = m.build;
       state.connected = true;
       state.reconnectDelay = 500;
       state.hello = m;

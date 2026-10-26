@@ -78,12 +78,20 @@ final class AppCore {
         for s in sessions.values { s.ws.queue.async { s.ws.close() } }
     }
 
+    /// Changes with every install, so an open phone page knows to reload the new web app.
+    static let build: String = {
+        let exe = Bundle.main.executableURL?.path ?? ""
+        let date = (try? FileManager.default.attributesOfItem(atPath: exe)[.modificationDate] as? Date) ?? Date()
+        return String(Int(date.timeIntervalSince1970))
+    }()
+
     func helloMessage() -> [String: Any] {
         let displays: [[String: Any]] = orderedScreens().enumerated().map { i, scr in
             ["index": i, "name": scr.localizedName, "w": Int(scr.frame.width), "h": Int(scr.frame.height)]
         }
         return [
             "t": "hello",
+            "build": Self.build,
             "name": Host.current().localizedName ?? "Mac",
             "displays": displays,
             "cameras": CameraStreamer.list(),
