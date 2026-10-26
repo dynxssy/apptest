@@ -48,10 +48,12 @@ public_endpoint() {
   echo >&2
   echo "Your phone needs your home's public address to find the Mac." >&2
   echo "Enter your public IP (or a DNS name for it). Leave empty to look it up now." >&2
-  echo "(Looking it up asks OpenDNS's resolver what your IP is; nothing else is sent.)" >&2
+  echo "(Looking it up asks OpenDNS, or api.ipify.org if that fails, what your IP is; nothing else is sent.)" >&2
   read -r -p "Public address: " ep
   if [ -z "$ep" ]; then
     ep=$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null | tail -1)
+    # Some networks block outside DNS servers; fall back to a plain HTTPS lookup.
+    [ -n "$ep" ] || ep=$(curl -fsS -m 5 https://api.ipify.org 2>/dev/null || true)
     [ -n "$ep" ] || die "Couldn't detect it. Find it in your router's status page and run again."
     echo "Detected $ep" >&2
   fi
