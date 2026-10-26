@@ -192,8 +192,10 @@ final class PairingView: NSView {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
         ])
 
+        let tunnelUp = NetworkInfo.localIPv4().contains(Config.shared.settings.tunnelAddress)
         picker.addItems(withTitles: core.addresses.map { addr in
-            addr == Config.shared.settings.tunnelAddress ? "\(addr) (WireGuard, works anywhere)" : "\(addr) (home network)"
+            guard addr == Config.shared.settings.tunnelAddress else { return "\(addr) (home network)" }
+            return tunnelUp ? "\(addr) (WireGuard, works anywhere)" : "\(addr) (WireGuard, not set up yet)"
         })
         picker.target = self
         picker.action = #selector(refresh)
