@@ -32,11 +32,7 @@ iPhone (home-screen web app)                         Mac (menu bar app)
 
 ### 1. Get the Mac app
 
-Either download the build from GitHub: **Actions** tab > latest **build** run > **RemoteMac-app**
-artifact, unzip, move `RemoteMac.app` to Applications, then right-click it > **Open** the first time
-(it's not notarized).
-
-Or build it yourself (needs Xcode or `xcode-select --install`, macOS 13 or newer):
+Build it on the Mac (needs Xcode or `xcode-select --install`, macOS 13 or newer):
 
 ```sh
 git clone -b remote-mac https://github.com/dynxssy/apptest.git remote-mac
@@ -46,6 +42,10 @@ cd remote-mac/mac
 
 On first launch macOS asks for **Screen Recording**, **Accessibility** and **Camera**. Allow all
 three (System Settings > Privacy & Security). The menu bar icon > **Permissions** shows what's on.
+
+The repo also has a GitHub Actions job that builds the app on a macOS runner and offers it as a
+download (**Actions** tab > **build** > **RemoteMac-app**). It only runs once GitHub Actions is
+enabled for the account.
 
 > Rebuilding with the default ad-hoc signature makes macOS forget those permissions. See the top of
 > `mac/build-app.sh` for how to sign with a stable local certificate.
@@ -128,6 +128,6 @@ Written in a Linux cloud session, so the macOS parts have **not been run yet**:
 |---|---|
 | Phone web app (video decode, audio, gestures, keyboard, settings, camera view, reconnect) | Tested against the mock server in emulated iPhone Chromium (35 checks). Not yet on a real iPhone/Safari. |
 | TLS certificate commands | Tested with OpenSSL on Linux (chain verifies, SANs correct). |
-| Mac app compile | Checked by the GitHub Actions `build` job on a macOS runner. |
+| Mac app compile | Not compiled yet (no Swift toolchain here, and GitHub Actions is locked on the account). Reviewed by hand against the macOS SDK APIs. Expect possibly a few small compile fixes on first build. |
 | Screen/audio capture, input, camera, keep-awake, menu bar | Not run yet. Needs a test on the Mac. |
 | WireGuard script | Syntax and shellcheck clean. Not run yet. |

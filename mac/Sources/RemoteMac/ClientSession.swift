@@ -119,7 +119,7 @@ final class ClientSession: MediaSink {
             }
 
         case "keyframe":
-            requestKeyframe(StreamID(rawValue: UInt8(int(msg["s"]) ?? 0)) ?? .screen, force: true)
+            requestKeyframe(StreamID(rawValue: UInt8(clamping: int(msg["s"]) ?? 0)) ?? .screen, force: true)
 
         case "move":
             if let x = double(msg["x"]), let y = double(msg["y"]) { core.input.move(x: x, y: y, in: bounds) }

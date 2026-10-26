@@ -56,15 +56,15 @@ final class KeepAwake {
         // While a phone is watching, the display has to stay on or the picture freezes.
         let wantDisplay = (wantSystem && keepDisplay) || streaming
         let changed = (wantSystem != (systemAssertion != 0)) || (wantDisplay != (displayAssertion != 0))
-        hold(&systemAssertion, kIOPMAssertionTypePreventUserIdleSystemSleep, wantSystem)
-        hold(&displayAssertion, kIOPMAssertionTypePreventUserIdleDisplaySleep, wantDisplay)
+        hold(&systemAssertion, kIOPMAssertionTypePreventUserIdleSystemSleep as CFString, wantSystem)
+        hold(&displayAssertion, kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString, wantDisplay)
         if changed { onChange?() }
     }
 
-    private func hold(_ id: inout IOPMAssertionID, _ type: String, _ want: Bool) {
+    private func hold(_ id: inout IOPMAssertionID, _ type: CFString, _ want: Bool) {
         if want && id == 0 {
             var newID: IOPMAssertionID = 0
-            let r = IOPMAssertionCreateWithName(type as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            let r = IOPMAssertionCreateWithName(type, IOPMAssertionLevel(kIOPMAssertionLevelOn),
                                                 "RemoteMac keeps this Mac reachable" as CFString, &newID)
             if r == kIOReturnSuccess { id = newID }
         } else if !want && id != 0 {
