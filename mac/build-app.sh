@@ -26,6 +26,8 @@ echo "Built $APP"
 
 if [ "${1:-}" = "--install" ]; then
   osascript -e 'quit app "RemoteMac"' 2>/dev/null || true
+  # Wait for the old copy to exit, or `open` fails with error -600.
+  for _ in $(seq 50); do pgrep -xq RemoteMac || break; sleep 0.1; done
   rm -rf /Applications/RemoteMac.app
   cp -R "$APP" /Applications/
   open /Applications/RemoteMac.app
