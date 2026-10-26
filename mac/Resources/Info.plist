@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>RemoteMac</string>
+	<key>CFBundleDisplayName</key>
+	<string>RemoteMac</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.remotemac.app</string>
+	<key>CFBundleExecutable</key>
+	<string>RemoteMac</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>RemoteMac shows this Mac's camera on your phone when you ask for it.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>RemoteMac lets your phone connect to this Mac over your home network or your WireGuard tunnel.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>RemoteMac changes the volume when you use the volume buttons on your phone.</string>
+</dict>
+</plist>

@@ -1,0 +1,18 @@
+# Build output
+mac/.build/
+mac/build/
+mac/.swiftpm/
+node_modules/
+tools/screenshots/
+
+# Never commit keys or tunnel configs (this repo is public)
+*.key
+*.pem
+*.p12
+*.cer
+*.conf
+*.mobileconfig
+token
+
+.DS_Store
+.claude/

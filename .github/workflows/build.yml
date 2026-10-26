@@ -1,0 +1,31 @@
+name: build
+on:
+  push:
+    branches: [remote-mac]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  mac-app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build RemoteMac.app
+        run: ./mac/build-app.sh
+      - name: Zip
+        run: cd mac/build && ditto -c -k --keepParent RemoteMac.app RemoteMac.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemoteMac-app
+          path: mac/build/RemoteMac.zip
+
+  web-app:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm install --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node tools/test-web.cjs

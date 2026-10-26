@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RemoteMac">
+<meta name="theme-color" content="#0b0d10">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<title>RemoteMac</title>
+</head>
+<body>
+
+<!-- Pairing: shown until the phone has a token -->
+<section id="pair" class="screen-view" hidden>
+  <div class="card">
+    <h1>RemoteMac</h1>
+    <p>On your Mac, click the RemoteMac icon in the menu bar, choose <b>Pair a Phone</b>, and scan the QR code with this phone's camera.</p>
+    <details>
+      <summary>Paste a pairing code instead</summary>
+      <form id="pairForm">
+        <input id="pairInput" placeholder="Pairing code" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="primary" type="submit">Connect</button>
+      </form>
+    </details>
+  </div>
+</section>
+
+<!-- Main remote view -->
+<section id="main" hidden>
+  <div id="stage">
+    <div id="view"><canvas id="screen"></canvas></div>
+    <div id="cursorDot" hidden></div>
+  </div>
+
+  <div id="statusBar">
+    <span id="statusDot" class="dot"></span>
+    <span id="statusText">Connecting…</span>
+    <span id="stats"></span>
+  </div>
+
+  <button id="fitBtn" class="floating" hidden>Fit</button>
+
+  <div id="notice" hidden></div>
+
+  <div id="tapToStart" hidden>
+    <button class="primary big" id="startBtn">Tap to start</button>
+    <p>Starts the picture and sound.</p>
+  </div>
+
+  <div id="keyBar" hidden>
+    <div class="row">
+      <button data-key="esc">esc</button>
+      <button data-key="tab">tab</button>
+      <button data-mod="cmd">⌘</button>
+      <button data-mod="alt">⌥</button>
+      <button data-mod="ctrl">⌃</button>
+      <button data-mod="shift">⇧</button>
+      <button data-key="left">←</button>
+      <button data-key="up">↑</button>
+      <button data-key="down">↓</button>
+      <button data-key="right">→</button>
+      <button data-key="backspace">⌫</button>
+      <button data-key="enter">⏎</button>
+    </div>
+    <div class="row chips">
+      <button data-combo="cmd+c">⌘C</button>
+      <button data-combo="cmd+v">⌘V</button>
+      <button data-combo="cmd+z">⌘Z</button>
+      <button data-combo="cmd+a">⌘A</button>
+      <button data-combo="cmd+tab">⌘Tab</button>
+      <button data-combo="cmd+space">Spotlight</button>
+      <button data-action="missionControl">Mission Control</button>
+      <button data-combo="cmd+w">⌘W</button>
+      <button data-combo="cmd+q">⌘Q</button>
+      <button data-key="f11">Desktop</button>
+      <button data-key="pageup">PgUp</button>
+      <button data-key="pagedown">PgDn</button>
+    </div>
+  </div>
+
+  <nav id="toolbar">
+    <button id="modeBtn" title="Trackpad or touch mode"><span class="ico">⌖</span><span class="lbl">Trackpad</span></button>
+    <button id="kbdBtn"><span class="ico">⌨︎</span><span class="lbl">Keyboard</span></button>
+    <button id="keysBtn"><span class="ico">⌘</span><span class="lbl">Keys</span></button>
+    <button id="soundBtn"><span class="ico">🔈</span><span class="lbl">Sound</span></button>
+    <button id="camBtn"><span class="ico">📷</span><span class="lbl">Camera</span></button>
+    <button id="moreBtn"><span class="ico">⋯</span><span class="lbl">More</span></button>
+  </nav>
+  <button id="toolbarToggle" class="floating" aria-label="Show or hide toolbar">▾</button>
+
+  <textarea id="kbd" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Keyboard input"></textarea>
+
+  <!-- Settings sheet -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-body">
+      <div class="sheet-head"><h2 id="macName">Mac</h2><button class="close" data-close="sheet">Done</button></div>
+
+      <h3>Keep Mac awake</h3>
+      <div class="seg" id="awakeSeg">
+        <button data-mode="off">Off</button>
+        <button data-mode="connected">While connected</button>
+        <button data-mode="always">Always</button>
+      </div>
+      <div class="seg small" id="awakeTimer">
+        <button data-hours="1">1 hour</button>
+        <button data-hours="4">4 hours</button>
+        <button data-hours="12">12 hours</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="awakeDisplay"> Keep display on too</label>
+      <p class="hint" id="awakeState"></p>
+
+      <h3>Picture</h3>
+      <div class="seg" id="qualitySeg">
+        <button data-q="auto">Auto</button>
+        <button data-q="low">Data saver</button>
+        <button data-q="medium">Balanced</button>
+        <button data-q="high">Best</button>
+      </div>
+      <label class="field" id="displayField" hidden>Display <select id="displaySelect"></select></label>
+      <label class="field">Trackpad speed <input type="range" id="speed" min="0.5" max="4" step="0.1"></label>
+
+      <h3>Quick actions</h3>
+      <div class="grid">
+        <button data-action="volumeDown">Volume −</button>
+        <button data-action="volumeUp">Volume +</button>
+        <button data-action="mute">Mute</button>
+        <button data-action="displaySleep">Screen off</button>
+        <button data-action="lock">Lock</button>
+        <button data-action="spotlight">Spotlight</button>
+      </div>
+
+      <h3>Clipboard</h3>
+      <textarea id="clipText" rows="3" placeholder="Text to send to the Mac, or tap Get to read the Mac's clipboard"></textarea>
+      <div class="grid two">
+        <button id="clipGet">Get from Mac</button>
+        <button id="clipSend">Send to Mac</button>
+      </div>
+
+      <h3>Connection</h3>
+      <p class="hint" id="connInfo"></p>
+      <div class="grid two">
+        <button id="reconnectBtn">Reconnect</button>
+        <button id="forgetBtn" class="danger">Unpair this phone</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera -->
+  <div id="camera" class="overlay" hidden>
+    <canvas id="camCanvas"></canvas>
+    <div class="cam-bar">
+      <button id="camClose">Close</button>
+      <select id="camSelect"></select>
+      <button id="camMirror">Mirror</button>
+      <button id="camSnap">Photo</button>
+    </div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
