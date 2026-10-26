@@ -23,7 +23,9 @@ final class AppCore {
     var addresses: [String] {
         let tunnel = Config.shared.settings.tunnelAddress
         var list = NetworkInfo.localIPv4()
-        list.sort { a, b in a == tunnel ? true : b == tunnel ? false : a < b }
+        // Addresses that work from anywhere come first: Tailscale, then a running WireGuard tunnel.
+        func rank(_ a: String) -> Int { NetworkInfo.isTailscale(a) ? 0 : a == tunnel ? 1 : 2 }
+        list.sort { rank($0) != rank($1) ? rank($0) < rank($1) : $0 < $1 }
         if !list.contains(tunnel) { list.append(tunnel) }
         list.append(NetworkInfo.bonjourName)
         return list

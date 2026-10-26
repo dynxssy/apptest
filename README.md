@@ -50,7 +50,15 @@ enabled for the account.
 > Rebuilding with the default ad-hoc signature makes macOS forget those permissions. See the top of
 > `mac/build-app.sh` for how to sign with a stable local certificate.
 
-### 2. Set up access from anywhere (WireGuard)
+### 2. Set up access from anywhere
+
+**Easiest: Tailscale.** Install Tailscale on the Mac (tailscale.com/download) and on the iPhone (App Store),
+and sign in to the same account on both. No router settings. Traffic is end-to-end encrypted WireGuard
+and goes directly between your devices whenever possible; Tailscale's servers only help them find each
+other (and relay encrypted packets if a direct path is impossible). Then quit and reopen RemoteMac once so
+its certificate includes the Tailscale address, and pair on the `100.x.y.z (Tailscale)` address.
+
+**Fully self-hosted: your own WireGuard** (needs a router that can forward a UDP port, or an IPv6 allow rule).
 
 ```sh
 ./wireguard/setup-wireguard.sh

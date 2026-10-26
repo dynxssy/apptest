@@ -188,6 +188,12 @@ enum NetworkInfo {
         return Array(Set(result)).sorted()
     }
 
+    /// Tailscale hands out addresses from 100.64.0.0/10.
+    static func isTailscale(_ ip: String) -> Bool {
+        let parts = ip.split(separator: ".").compactMap { Int($0) }
+        return parts.count == 4 && parts[0] == 100 && (64...127).contains(parts[1])
+    }
+
     static var bonjourName: String {
         let h = ProcessInfo.processInfo.hostName
         return h.hasSuffix(".local") ? h : h.split(separator: ".").first.map { "\($0).local" } ?? "localhost"

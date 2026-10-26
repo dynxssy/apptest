@@ -194,6 +194,8 @@ final class PairingView: NSView {
 
         let tunnelUp = NetworkInfo.localIPv4().contains(Config.shared.settings.tunnelAddress)
         picker.addItems(withTitles: core.addresses.map { addr in
+            if NetworkInfo.isTailscale(addr) { return "\(addr) (Tailscale, works anywhere)" }
+            if addr.hasSuffix(".local") { return "\(addr) (home network, by name)" }
             guard addr == Config.shared.settings.tunnelAddress else { return "\(addr) (home network)" }
             return tunnelUp ? "\(addr) (WireGuard, works anywhere)" : "\(addr) (WireGuard, not set up yet)"
         })
