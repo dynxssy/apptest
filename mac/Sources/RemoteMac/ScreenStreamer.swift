@@ -131,7 +131,8 @@ final class ScreenStreamer: NSObject, SCStreamOutput, SCStreamDelegate {
                 cfg.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
                 cfg.colorSpaceName = CGColorSpace.sRGB
                 cfg.queueDepth = 6
-                cfg.showsCursor = true
+                // The phone draws its own pointer with no delay; a second, lagging one in the video confuses.
+                cfg.showsCursor = false
                 cfg.capturesAudio = true
                 cfg.sampleRate = 48_000
                 cfg.channelCount = 2

@@ -47,6 +47,8 @@ const state = {
   bytes: 0,
   frames: 0,
   cursor: { x: 0.5, y: 0.5 },
+  localInputAt: 0, // last time the phone moved the pointer; Mac cursor reports are ignored briefly after
+  displays: [],
   keepAwake: null,
 };
 // Exposed for tests and debugging.
@@ -115,6 +117,9 @@ function onJSON(m) {
       state.rtt = Math.round(performance.now() - m.ts);
       break;
     case 'cursor':
+      // The phone draws its own pointer right away; the Mac's reports only matter when the pointer
+      // moved on the Mac itself (or to settle after a while).
+      if (performance.now() - state.localInputAt < 600) break;
       state.cursor = { x: m.x, y: m.y };
       followCursor();
       break;
@@ -251,7 +256,15 @@ const audio = {
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
       this.ctx = new AC({ latencyHint: 'interactive' });
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state !== 'running') {
+      this.ctx.resume();
+      // Playing a silent buffer inside the gesture is what actually unlocks sound on iOS.
+      const b = this.ctx.createBuffer(1, 1, 22050);
+      const src = this.ctx.createBufferSource();
+      src.buffer = b;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    }
   },
   play(channels, rate, samples) {
     if (!settings.sound || !this.ctx || this.ctx.state !== 'running') return;
@@ -372,9 +385,15 @@ function toNorm(clientX, clientY) {
   return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height };
 }
 
+function setLocalCursor(x, y) {
+  state.cursor = { x: Math.min(Math.max(x, 0), 1), y: Math.min(Math.max(y, 0), 1) };
+  state.localInputAt = performance.now();
+  followCursor();
+}
+
 function placeCursorDot() {
   const dot = $('#cursorDot');
-  if (settings.mode !== 'trackpad' || view.scale <= 1.01) { dot.hidden = true; return; }
+  if (!screenVideo.width) { dot.hidden = true; return; }
   const r = $('#screen').getBoundingClientRect();
   const s = $('#stage').getBoundingClientRect();
   dot.hidden = false;
@@ -416,7 +435,7 @@ const g = {
   startDist: 0,
   lastDist: 0,
   holdTimer: null,
-  pendingRel: { dx: 0, dy: 0 },
+  pendingMove: false,
   pendingScroll: { dx: 0, dy: 0 },
   lastMoveT: 0,
   mouseDown: false,
@@ -434,9 +453,9 @@ function spread() {
 }
 
 function flushInput() {
-  if (g.pendingRel.dx || g.pendingRel.dy) {
-    send({ t: 'rel', dx: Math.round(g.pendingRel.dx * 10) / 10, dy: Math.round(g.pendingRel.dy * 10) / 10 });
-    g.pendingRel = { dx: 0, dy: 0 };
+  if (g.pendingMove) {
+    send({ t: 'move', x: +state.cursor.x.toFixed(5), y: +state.cursor.y.toFixed(5) });
+    g.pendingMove = false;
   }
   if (g.pendingScroll.dx || g.pendingScroll.dy) {
     send({ t: 'scroll', dx: Math.round(g.pendingScroll.dx), dy: Math.round(g.pendingScroll.dy) });
@@ -472,11 +491,13 @@ function onHold(p) {
   if (g.moved || g.touches.size !== 1) return;
   if (navigator.vibrate) navigator.vibrate(10);
   if (settings.mode === 'trackpad') {
+    flushInput();
     g.mode = 'drag';
     g.mouseDown = true;
     send({ t: 'button', b: 0, down: true });
   } else {
     const n = toNorm(p.x, p.y);
+    setLocalCursor(n.x, n.y);
     send({ t: 'move', x: n.x, y: n.y });
     send({ t: 'click', b: 1, n: 1 });
     g.mode = 'held';
@@ -523,18 +544,23 @@ function stageMove(points) {
     const v = Math.hypot(dx, dy) / dt;
     const accel = 1 + Math.min(v, 3) * 1.2;
     const k = settings.speed * accel / Math.max(1, view.scale * 0.6);
-    g.pendingRel.dx += dx * k;
-    g.pendingRel.dy += dy * k;
+    // Move the on-phone pointer now and let the real one follow; clicks are sent after the move
+    // on the same ordered connection, so they always land where this pointer is.
+    const d = state.displays[settings.display] || { w: 1920, h: 1080 };
+    setLocalCursor(state.cursor.x + (dx * k) / d.w, state.cursor.y + (dy * k) / d.h);
+    g.pendingMove = true;
     queueFlush();
   } else if (g.mode !== 'held') {
     const n = toNorm(c.x, c.y);
     if (g.mode !== 'drag') {
       const s = toNorm(g.touches.values().next().value.sx, g.touches.values().next().value.sy);
+      setLocalCursor(s.x, s.y);
       send({ t: 'move', x: s.x, y: s.y });
       send({ t: 'button', b: 0, down: true });
       g.mouseDown = true;
       g.mode = 'drag';
     }
+    setLocalCursor(n.x, n.y);
     send({ t: 'move', x: n.x, y: n.y });
   }
   g.last = c;
@@ -558,6 +584,7 @@ function stageUp(ids) {
     } else {
       const p = before.values().next().value;
       const n = toNorm(p.sx, p.sy);
+      setLocalCursor(n.x, n.y);
       send({ t: 'move', x: n.x, y: n.y });
       send({ t: 'click', b: 0, n: 1 });
     }
@@ -859,6 +886,7 @@ function updateKeepAwake(ka) {
 function fillDisplays(displays) {
   const sel = $('#displaySelect');
   sel.innerHTML = '';
+  state.displays = displays;
   displays.forEach((d, i) => {
     const o = document.createElement('option');
     o.value = i;
@@ -968,6 +996,10 @@ function ensureStarted() {
   if (state.connected) startScreen();
 }
 $('#startBtn').onclick = (e) => { e.stopPropagation(); ensureStarted(); };
+// iOS counts touchend and click as user gestures for sound, but not touchstart (which the stage uses).
+for (const ev of ['touchend', 'click']) {
+  document.addEventListener(ev, () => { if (settings.sound) audio.unlock(); }, { capture: true, passive: true });
+}
 $('#tapToStart').addEventListener('touchstart', (e) => { e.preventDefault(); ensureStarted(); }, { passive: false });
 
 document.addEventListener('visibilitychange', () => {

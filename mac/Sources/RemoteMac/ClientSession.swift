@@ -30,6 +30,8 @@ final class ClientSession: MediaSink {
     private var lastKeyRequest: [StreamID: TimeInterval] = [:]
     private var lastCongestionNotice: TimeInterval = 0
     private var displayIndex = 0
+    private var cursorTimer: DispatchSourceTimer?
+    private var lastCursor = (x: -1.0, y: -1.0)
 
     // Unsent bytes allowed before video frames are skipped (keeps latency low on mobile data).
     private let softLimit = 256 * 1024
@@ -49,6 +51,8 @@ final class ClientSession: MediaSink {
     }
 
     private func closed() {
+        cursorTimer?.cancel()
+        cursorTimer = nil
         core.screen.unsubscribe(self)
         core.camera.unsubscribe(self)
         if authed {
@@ -78,6 +82,7 @@ final class ClientSession: MediaSink {
             }
             core.limiter.succeed(remote)
             authed = true
+            startCursorReports()
             Log.info("phone connected from \(remote)")
             DispatchQueue.main.async {
                 self.core.sessionStarted(self)
@@ -172,6 +177,22 @@ final class ClientSession: MediaSink {
         default:
             break
         }
+    }
+
+    /// The video leaves the cursor out and the phone draws its own, so tell the phone where the real
+    /// pointer is whenever it moves (e.g. someone uses the Mac's own mouse).
+    private func startCursorReports() {
+        let t = DispatchSource.makeTimerSource(queue: ws.queue)
+        t.schedule(deadline: .now() + 0.2, repeating: 0.05)
+        t.setEventHandler { [weak self] in
+            guard let self else { return }
+            let (x, y) = self.core.input.cursorNormalized(in: self.core.screen.displayBounds)
+            guard abs(x - self.lastCursor.x) > 0.0005 || abs(y - self.lastCursor.y) > 0.0005 else { return }
+            self.lastCursor = (x, y)
+            self.ws.send(json: ["t": "cursor", "x": x, "y": y])
+        }
+        t.resume()
+        cursorTimer = t
     }
 
     // MARK: - Outgoing media

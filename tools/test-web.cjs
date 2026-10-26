@@ -69,10 +69,11 @@ const events = async () => (await fetch(BASE + '/__events')).json();
     await page.touchscreen.tap(200, 300);
     await sleep(300);
     let ev = await events();
-    const rel = ev.filter((e) => e.t === 'rel');
-    check('trackpad drag sends relative moves', rel.length > 0 && rel.reduce((a, e) => a + e.dx, 0) > 0, `${rel.length} moves`);
-    check('trackpad tap sends left click', ev.some((e) => e.t === 'click' && e.b === 0));
-    check('server cursor echo received', await page.evaluate(() => window.__rm.state.cursor.x !== 0.5));
+    const moves = ev.filter((e) => e.t === 'move');
+    check('trackpad drag moves the pointer right away', moves.length > 0 && moves[moves.length - 1].x > 0.5, `${moves.length} moves`);
+    const lastMove = ev.map((e) => e.t).lastIndexOf('move'), click = ev.findIndex((e) => e.t === 'click' && e.b === 0);
+    check('trackpad tap clicks after the pointer is in place', click > lastMove && lastMove >= 0);
+    check('phone draws its own pointer', await page.evaluate(() => !document.querySelector('#cursorDot').hidden && window.__rm.state.cursor.x > 0.5));
 
     // 6. Two-finger tap = right click; two-finger drag = scroll.
     await touch('touchStart', [[150, 300], [220, 300]]);
