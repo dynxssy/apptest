@@ -124,7 +124,15 @@ final class AppCore {
 
     private func routeApp(_ req: HTTPRequest) -> HTTPResponse {
         if req.path == "/ca.mobileconfig" || req.path == "/ca.cer" { return routeSetup(req) }
-        return StaticFiles.serve(root: Config.shared.webRoot, path: req.path)
+        var res = StaticFiles.serve(root: Config.shared.webRoot, path: req.path)
+        if req.path == "/" || req.path == "/index.html", let html = String(data: res.body, encoding: .utf8) {
+            // Versioned asset links, so iOS never keeps an old app.js/style.css after an update.
+            let v = Self.build
+            res.body = Data(html.replacingOccurrences(of: "href=\"style.css\"", with: "href=\"style.css?v=\(v)\"")
+                .replacingOccurrences(of: "src=\"app.js\"", with: "src=\"app.js?v=\(v)\"").utf8)
+            res.headers["Cache-Control"] = "no-store"
+        }
+        return res
     }
 
     /// Plain-HTTP helper: only hands out the CA certificate, so a phone can trust the HTTPS app.
