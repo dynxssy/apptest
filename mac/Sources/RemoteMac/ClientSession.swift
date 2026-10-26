@@ -32,8 +32,8 @@ final class ClientSession: MediaSink {
     private var displayIndex = 0
 
     // Unsent bytes allowed before video frames are skipped (keeps latency low on mobile data).
-    private let softLimit = 768 * 1024
-    private let lowWater = 128 * 1024
+    private let softLimit = 256 * 1024
+    private let lowWater = 64 * 1024
     private let audioLimit = 2 * 1024 * 1024
 
     init(ws: WebSocket, remote: String, core: AppCore) {

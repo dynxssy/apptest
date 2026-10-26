@@ -46,5 +46,5 @@ Video: `[0x01][stream u8: 0 screen, 1 camera][flags u8: bit0 keyframe][timestamp
 
 Audio: `[0x02][channels u8][sample rate u32 BE][int16 little-endian interleaved PCM]`
 
-The Mac skips video (never audio) while more than ~768 KB is waiting to be sent, then resumes
+The Mac skips video (never audio) while more than ~256 KB is waiting to be sent, then resumes
 at the next keyframe, so a slow mobile link drops frames instead of building up delay.

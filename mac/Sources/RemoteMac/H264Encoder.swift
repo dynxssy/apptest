@@ -50,8 +50,11 @@ final class H264Encoder {
         }
         self.session = session
         set(kVTCompressionPropertyKey_RealTime, kCFBooleanTrue)
-        set(kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+        // Baseline has no frame reordering, so Safari's decoder outputs each frame right away instead
+        // of holding several back.
+        set(kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel)
         set(kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse)
+        set(kVTCompressionPropertyKey_MaxFrameDelayCount, 0 as CFNumber)
         set(kVTCompressionPropertyKey_ExpectedFrameRate, fps as CFNumber)
         set(kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, 5 as CFNumber)
         setBitrate(bitrate)

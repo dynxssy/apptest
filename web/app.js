@@ -188,8 +188,10 @@ class VideoStream {
     const d = this.decoder;
     if (!d || d.state !== 'configured') return;
     if (this.needKey && !key) return;
-    // Decoder falling behind (slow phone): skip ahead to the next keyframe.
-    if (!key && d.decodeQueueSize > 4) {
+    // Decoder really falling behind: skip ahead to the next keyframe. Safari's decoder keeps a few
+    // frames queued even when it's keeping up, so a small threshold here caused a keyframe loop (~4 fps).
+    if (!key && d.decodeQueueSize > 30) {
+      window.__rm.stats.skips = (window.__rm.stats.skips || 0) + 1;
       this.needKey = true;
       send({ t: 'keyframe', s: this.streamId });
       return;
@@ -203,7 +205,21 @@ class VideoStream {
     }
   }
 
+  // Paint at most once per display refresh and always the newest frame, so a burst of frames
+  // never queues up behind the screen.
   draw(frame) {
+    if (this.pending) this.pending.close();
+    this.pending = frame;
+    if (this.raf) return;
+    this.raf = requestAnimationFrame(() => {
+      this.raf = 0;
+      const f = this.pending;
+      this.pending = null;
+      if (f) this.paint(f);
+    });
+  }
+
+  paint(frame) {
     const w = frame.displayWidth, h = frame.displayHeight;
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w;
@@ -295,7 +311,7 @@ setInterval(() => {
 setInterval(() => {
   if (state.connected) send({ t: 'ping', ts: performance.now() });
   const kbps = Math.round((state.bytes * 8) / 1000);
-  $('#stats').textContent = state.connected ? `${state.frames} fps · ${kbps >= 1000 ? (kbps / 1000).toFixed(1) + ' Mb/s' : kbps + ' kb/s'} · ${state.rtt} ms` : '';
+  $('#stats').textContent = state.connected ? `${state.frames} fps · ${kbps >= 1000 ? (kbps / 1000).toFixed(1) + ' Mb/s' : kbps + ' kb/s'} · ${state.rtt} ms${window.__rm.stats.skips ? ' · ' + window.__rm.stats.skips + ' skips' : ''}` : '';
   state.bytes = 0;
   state.frames = 0;
 }, 1000);
